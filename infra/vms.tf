@@ -20,15 +20,23 @@ resource "proxmox_virtual_environment_vm" "k3s" {
 
   cpu {
     cores = each.value.cores
-    type  = "host"
+    # Not "host" — full host CPU passthrough on this Zen host triggers a guest kernel
+    # panic in the SRSO ("Speculative Return Stack Overflow") mitigation thunk during
+    # early boot (kernel panic in srso_alias_return_thunk, reproduced twice). x86-64-v2-AES
+    # is a safe, broadly-compatible profile with AES-NI that sidesteps the crash.
+    type = "x86-64-v2-AES"
   }
 
   memory {
     dedicated = each.value.memory
   }
 
+  # qemu-guest-agent isn't installed in the base Debian cloud image, so leaving this
+  # enabled makes Terraform block for ~10+ min waiting for a response that never comes.
+  # We already know the IPs via static cloud-init config, so we don't need it yet.
+  # Revisit once cloud-init installs the agent package (Phase 2+).
   agent {
-    enabled = true
+    enabled = false
   }
 
   disk {

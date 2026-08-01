@@ -18,7 +18,8 @@ resource "proxmox_virtual_environment_vm" "template" {
 
   cpu {
     cores = 1
-    type  = "host"
+    # See vms.tf — "host" passthrough panics the guest kernel on this Zen host.
+    type = "x86-64-v2-AES"
   }
 
   memory {
