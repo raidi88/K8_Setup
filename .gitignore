@@ -25,6 +25,7 @@ kubeconfig
 *.pem
 *.key
 !*.example.key
+CREDENTIALS.md
 
 # OS / editor
 .DS_Store
