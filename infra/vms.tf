@@ -4,6 +4,10 @@ locals {
     worker1       = { vm_id = 8002, cores = 4, memory = 8192, ip = "192.168.0.152/24" }
     worker2       = { vm_id = 8003, cores = 4, memory = 8192, ip = "192.168.0.153/24" }
   }
+
+  # Real target OS disk size. Stays separate from the disk.size=3 clone-time value
+  # below on purpose — see null_resource.grow_disk for why.
+  vm_disk_size_gb = 20
 }
 
 resource "proxmox_virtual_environment_vm" "k3s" {
@@ -76,5 +80,48 @@ resource "proxmox_virtual_environment_vm" "k3s" {
       username = var.vm_username
       keys     = [trimspace(file(pathexpand(var.ssh_public_key_path)))]
     }
+  }
+
+  # null_resource.grow_disk (below) grows the real disk out-of-band after boot. Without
+  # this, Terraform sees that drift against disk.size=3 and tries to shrink it back on
+  # the next apply — which would either fail or, worse, attempt a destructive shrink.
+  lifecycle {
+    ignore_changes = [disk]
+  }
+}
+
+# Grows each VM's OS disk from the corruption-safe 3G clone size up to the real target
+# size, *after* the VM has already booted successfully. This is the safe way to do it:
+# `qm resize` only extends the underlying block device (no partition/filesystem rewrite,
+# so nothing to corrupt), and growpart/resize2fs then extend the already-mounted,
+# already-healthy filesystem in place. Contrast with resizing before first boot, which
+# is what corrupted every VM earlier (see vms.tf's disk block and template.tf).
+resource "null_resource" "grow_disk" {
+  for_each = local.vms
+
+  depends_on = [proxmox_virtual_environment_vm.k3s]
+
+  triggers = {
+    vm_id     = each.value.vm_id
+    disk_size = local.vm_disk_size_gb
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      set -euo pipefail
+      VM_IP="${split("/", each.value.ip)[0]}"
+      GUEST_SSH="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 -i ~/.ssh/homelab_k3s_ed25519 ${var.vm_username}@$VM_IP"
+
+      for i in $(seq 1 30); do
+        $GUEST_SSH true && break
+        sleep 5
+      done
+
+      ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/homelab_k3s_ed25519 root@${var.proxmox_ssh_host} \
+        "qm resize ${each.value.vm_id} scsi0 ${local.vm_disk_size_gb}G" || true
+
+      $GUEST_SSH "sudo growpart /dev/sda 1 || true; sudo resize2fs /dev/sda1"
+    EOT
   }
 }
