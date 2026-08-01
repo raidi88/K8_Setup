@@ -29,13 +29,15 @@ Derived from [`design.md`](design.md). Worked phase by phase, pair-programming s
 - Fix: build the template disk via `qm importdisk` (a `null_resource` + `local-exec`, not the provider's native disk resource), pin clone disk `size` to match the template exactly (no implicit resize), then grow disks safely *after* first boot via `qm resize` (block-device-only, no partition rewrite) + in-guest `growpart`/`resize2fs`.
 - `agent.enabled = true` hangs Terraform for 10+ minutes per VM since `qemu-guest-agent` isn't installed in the base Debian cloud image — left disabled for now (static IPs from cloud-init make it unnecessary so far).
 
-## Phase 2 — k3s cluster bootstrap
+## Phase 2 — k3s cluster bootstrap ✅ done
 
-- [ ] Install k3s server on control-plane with `--disable traefik`
-- [ ] Install k3s agent on worker1 and worker2, joined via the server's token
-- [ ] Pull `kubeconfig` off control-plane for local `kubectl` access
+- [x] Install k3s server on control-plane with `--disable traefik`
+- [x] Install k3s agent on worker1 and worker2, joined via the server's token
+- [x] Pull `kubeconfig` off control-plane for local `kubectl` access — `infra/kubeconfig` (gitignored)
 
-**Done when:** `kubectl get nodes` shows all 3 nodes `Ready` from your workstation.
+**Done when:** `kubectl get nodes` shows all 3 nodes `Ready` from your workstation. ✅ Verified.
+
+**Hard-won lesson:** each VM independently downloading the ~80MB k3s binary from GitHub took 20-30+ minutes on this network — confirmed as a genuine link-level bottleneck (a Debian mirror and Rancher's own mirror were equally slow at the time), not GitHub-specific throttling. Fixed by fetching the binary once to a local, resumable, checksum-verified cache and pushing it to all 3 VMs over the fast LAN (`infra/k3s.tf`), installing with `INSTALL_K3S_SKIP_DOWNLOAD=true` instead of letting each node hit GitHub itself.
 
 ## Phase 3 — One-time manual seam: Helm + ArgoCD
 
