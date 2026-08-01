@@ -1,5 +1,11 @@
-# Debian 12 cloud image, imported directly by the Proxmox node (no local upload needed),
-# then converted into a template that the k3s VMs clone from.
+# Debian 12 cloud image, imported directly by the Proxmox node (no local upload needed).
+#
+# The disk is attached via `qm importdisk` (Proxmox's own native import tool) rather
+# than the provider's built-in file_id-based disk creation. That built-in path routes
+# through an SSH-based conversion+resize step that reproducibly corrupted the root
+# filesystem (guest kernel panic, "Attempted to kill init!", identical every time
+# regardless of CPU type/agent settings) — confirmed by manually reproducing the same
+# import with `qm importdisk` instead, which boots cleanly. See docs/implementation-plan.md.
 
 resource "proxmox_download_file" "debian_cloud_image" {
   content_type = "import"
@@ -14,27 +20,15 @@ resource "proxmox_virtual_environment_vm" "template" {
   name      = "debian-12-cloudinit-template"
   node_name = var.proxmox_node
   vm_id     = 9000
-  template  = true
+  started   = false
 
   cpu {
     cores = 1
-    # See vms.tf — "host" passthrough panics the guest kernel on this Zen host.
-    type = "x86-64-v2-AES"
+    type  = "x86-64-v2-AES"
   }
 
   memory {
     dedicated = 1024
-  }
-
-  # No explicit size here — it's left matching the imported image's native size (3GiB).
-  # Forcing a resize during import goes through a host-side SSH path that isn't reliable
-  # for growing GPT partition tables and previously corrupted the image. Growth to the
-  # real VM size happens at clone time instead (vms.tf), which cloud-init's growpart/
-  # resize2fs handle safely on first boot.
-  disk {
-    datastore_id = "local-lvm"
-    file_id      = proxmox_download_file.debian_cloud_image.id
-    interface    = "scsi0"
   }
 
   scsi_hardware = "virtio-scsi-pci"
@@ -53,7 +47,32 @@ resource "proxmox_virtual_environment_vm" "template" {
     interface    = "ide2"
   }
 
+  # scsi0 and the "template" flag are set out-of-band by null_resource.import_template_disk
+  # below — Terraform never sees them as part of this resource's own config.
   lifecycle {
-    ignore_changes = [network_device]
+    ignore_changes = [network_device, disk, template]
+  }
+}
+
+resource "null_resource" "import_template_disk" {
+  depends_on = [proxmox_virtual_environment_vm.template, proxmox_download_file.debian_cloud_image]
+
+  triggers = {
+    template_vm_id = proxmox_virtual_environment_vm.template.vm_id
+    image_id       = proxmox_download_file.debian_cloud_image.id
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      set -euo pipefail
+      VMID=${proxmox_virtual_environment_vm.template.vm_id}
+      ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/homelab_k3s_ed25519 root@${var.proxmox_ssh_host} "
+        qm importdisk $VMID /var/lib/vz/import/debian-12-genericcloud-amd64.qcow2 local-lvm &&
+        qm set $VMID --scsi0 local-lvm:vm-$${VMID}-disk-0 &&
+        qm set $VMID --boot order=scsi0 &&
+        qm template $VMID
+      "
+    EOT
   }
 }

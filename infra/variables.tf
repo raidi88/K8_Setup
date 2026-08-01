@@ -8,6 +8,11 @@ variable "proxmox_node" {
   default = "proxmox"
 }
 
+variable "proxmox_ssh_host" {
+  type    = string
+  default = "192.168.0.150"
+}
+
 variable "proxmox_api_token_id" {
   type      = string
   sensitive = true

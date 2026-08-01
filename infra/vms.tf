@@ -13,6 +13,8 @@ resource "proxmox_virtual_environment_vm" "k3s" {
   node_name = var.proxmox_node
   vm_id     = each.value.vm_id
 
+  depends_on = [null_resource.import_template_disk]
+
   clone {
     vm_id = proxmox_virtual_environment_vm.template.vm_id
     full  = true
@@ -20,10 +22,9 @@ resource "proxmox_virtual_environment_vm" "k3s" {
 
   cpu {
     cores = each.value.cores
-    # Not "host" — full host CPU passthrough on this Zen host triggers a guest kernel
-    # panic in the SRSO ("Speculative Return Stack Overflow") mitigation thunk during
-    # early boot (kernel panic in srso_alias_return_thunk, reproduced twice). x86-64-v2-AES
-    # is a safe, broadly-compatible profile with AES-NI that sidesteps the crash.
+    # x86-64-v2-AES rather than "host" passthrough — not required for correctness (the
+    # actual boot-crashing bug turned out to be the provider's file_id disk-creation path,
+    # fixed in template.tf), but it's a safe, broadly-compatible baseline with AES-NI.
     type = "x86-64-v2-AES"
   }
 
@@ -39,10 +40,17 @@ resource "proxmox_virtual_environment_vm" "k3s" {
     enabled = false
   }
 
+  # size is REQUIRED here and must match the template's native disk size (3G) exactly.
+  # Omitting it entirely makes the provider silently default to 8G and issue a resize
+  # task right after cloning — confirmed via Proxmox's own task log (qmclone, then a
+  # separate "resize" task, every time) — and that resize is what corrupts the root
+  # filesystem (identical guest kernel panic reproduced 3 times). Growing disks safely
+  # (via `qm resize` + a reboot, letting cloud-init's growpart/resize2fs extend the
+  # filesystem on an already-booted disk) is a follow-up; see docs/implementation-plan.md.
   disk {
     datastore_id = "local-lvm"
     interface    = "scsi0"
-    size         = 20
+    size         = 3
   }
 
   network_device {
