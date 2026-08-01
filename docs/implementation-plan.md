@@ -4,25 +4,30 @@ Derived from [`design.md`](design.md). Worked phase by phase, pair-programming s
 
 ## Phase 0 — Prep (manual, outside the repo)
 
-- [ ] Proxmox API token created for Terraform (`bpg/proxmox` provider auth)
-- [ ] SSH keypair generated for cloud-init to inject into VMs
-- [ ] Confirm Proxmox storage pool name, network bridge name, and a cloud-init-ready base image (e.g. Debian/Ubuntu cloud image) are available on the host
-- [ ] External USB HDD mounted on the Proxmox host, ready to be NFS-exported
+- [x] Proxmox API token created for Terraform (`bpg/proxmox` provider auth) — `root@pam!terraform`, full permissions, privilege separation off
+- [x] SSH keypair generated for cloud-init to inject into VMs — `~/.ssh/homelab_k3s_ed25519`, also added to root's `authorized_keys` on the Proxmox host itself and to `~/.ssh/config` as `proxmox`/`k3s-control-plane`/`k3s-worker1`/`k3s-worker2` aliases
+- [x] Confirm Proxmox storage pool name, network bridge name, and a cloud-init-ready base image are available on the host — `local` (import/iso) + `local-lvm` (disks), `vmbr0` already existed, Debian 12 genericcloud image downloaded directly by Terraform
+- [ ] External USB HDD mounted on the Proxmox host, ready to be NFS-exported — deferred to Phase 4 (storage)
 
-**Done when:** you can reach the Proxmox API with the token via `curl`/`pvesh`, and the base cloud image exists on the target storage.
+**Done when:** you can reach the Proxmox API with the token via `curl`/`pvesh`, and the base cloud image exists on the target storage. ✅
 
-## Phase 1 — Terraform VM provisioning (`infra/`)
+## Phase 1 — Terraform VM provisioning (`infra/`) ✅ done
 
-- [ ] `bpg/proxmox` provider config, local state (gitignored)
-- [ ] Cloud-init template resource (static IP, SSH key, base packages)
-- [ ] 3 VM resources per the RAM/vCPU table in `design.md`:
-  - control-plane — 4GB / 2 vCPU
-  - worker1 — 8GB / 4 vCPU
-  - worker2 — 8GB / 4 vCPU
-- [ ] `variables.tf` + `terraform.tfvars.example` (real `terraform.tfvars` gitignored)
-- [ ] `outputs.tf` exposing the 3 VM IPs
+- [x] `bpg/proxmox` provider config, local state (gitignored)
+- [x] Cloud-init template resource (static IP, SSH key, base packages)
+- [x] 3 VM resources per the RAM/vCPU table in `design.md`:
+  - control-plane — 4GB / 2 vCPU — 192.168.0.151
+  - worker1 — 8GB / 4 vCPU — 192.168.0.152
+  - worker2 — 8GB / 4 vCPU — 192.168.0.153
+- [x] `variables.tf` + `terraform.tfvars.example` (real `terraform.tfvars` gitignored)
+- [x] `outputs.tf` exposing the 3 VM IPs
 
-**Done when:** `terraform apply` (run manually, reviewed via `plan` first) brings up 3 VMs reachable over SSH with their static IPs.
+**Done when:** `terraform apply` (run manually, reviewed via `plan` first) brings up 3 VMs reachable over SSH with their static IPs. ✅ Verified — all 3 VMs boot cleanly and are SSH-reachable at their static IPs, 20GB disks.
+
+**Hard-won lessons (see commit history for full detail):**
+- The `bpg/proxmox` provider's built-in `file_id`-based disk creation and its clone-time disk resize both route through a buggy conversion/resize path that reproducibly corrupted the guest filesystem (identical kernel panic, "Attempted to kill init!", every time — not a CPU or agent issue, despite those being tried first). Root-caused by manually reproducing each step outside Terraform with Proxmox's native `qm importdisk`/`qm clone`/`qm resize`, which don't have the bug.
+- Fix: build the template disk via `qm importdisk` (a `null_resource` + `local-exec`, not the provider's native disk resource), pin clone disk `size` to match the template exactly (no implicit resize), then grow disks safely *after* first boot via `qm resize` (block-device-only, no partition rewrite) + in-guest `growpart`/`resize2fs`.
+- `agent.enabled = true` hangs Terraform for 10+ minutes per VM since `qemu-guest-agent` isn't installed in the base Debian cloud image — left disabled for now (static IPs from cloud-init make it unnecessary so far).
 
 ## Phase 2 — k3s cluster bootstrap
 
