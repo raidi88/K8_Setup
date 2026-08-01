@@ -1,0 +1,30 @@
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# Secrets
+*sealed-secrets*key*
+*.pem
+*.key
+!*.example.key
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
