@@ -25,11 +25,15 @@ resource "proxmox_virtual_environment_vm" "template" {
     dedicated = 1024
   }
 
+  # No explicit size here — it's left matching the imported image's native size (3GiB).
+  # Forcing a resize during import goes through a host-side SSH path that isn't reliable
+  # for growing GPT partition tables and previously corrupted the image. Growth to the
+  # real VM size happens at clone time instead (vms.tf), which cloud-init's growpart/
+  # resize2fs handle safely on first boot.
   disk {
     datastore_id = "local-lvm"
     file_id      = proxmox_download_file.debian_cloud_image.id
     interface    = "scsi0"
-    size         = 8
   }
 
   scsi_hardware = "virtio-scsi-pci"
