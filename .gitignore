@@ -17,6 +17,9 @@ terraform.rc
 kubeconfig
 *.kubeconfig
 
+# Downloaded binaries cached locally to avoid re-fetching over a slow link
+.cache/
+
 # Secrets
 *sealed-secrets*key*
 *.pem
