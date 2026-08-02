@@ -32,3 +32,7 @@ CREDENTIALS.md
 Thumbs.db
 .vscode/
 .idea/
+
+# Claude Code local-only files (settings.json itself IS committed, shared allowlist)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

@@ -53,14 +53,14 @@ Derived from [`design.md`](design.md). Worked phase by phase, pair-programming s
 
 These are the shared platform pieces every app depends on. Can be applied via ArgoCD (as the first synced apps) or manually before GitOps takes over — decide when we get here.
 
-- [ ] MetalLB (L2 mode), IP pool sized for all planned LoadBalancer services
-- [ ] ingress-nginx
-- [ ] `nfs-subdir-external-provisioner`, pointed at the host's NFS export of the USB HDD
-- [ ] Tailscale subnet router (one node), advertising the MetalLB pool range
+- [x] MetalLB (L2 mode), IP pool sized for all planned LoadBalancer services — `192.168.0.240-192.168.0.250`, picked after an `nmap -sn` sweep of the LAN found only .1/.150-153/.179 active. Flag if this overlaps your router's DHCP range.
+- [x] ingress-nginx — confirmed working end-to-end: its controller Service got `192.168.0.240`, the first address in the MetalLB pool
+- [ ] `nfs-subdir-external-provisioner`, pointed at the host's NFS export of the USB HDD — **blocked**: the only USB storage currently attached to the Proxmox host is a 29GB stick (`lsusb` confirms it, `lsblk` shows the small size), not a bulk-storage HDD. This doesn't match the design's "external USB HDD for media/files/game worlds." Needs the real drive physically connected before this can proceed.
+- [ ] Tailscale subnet router (one node), advertising the MetalLB pool range — **blocked**: needs an auth key from your own Tailscale account, which only you can generate
 - [ ] Adguard Home configured as tailnet DNS (later, once Adguard itself is deployed in Phase 6)
-- [ ] sealed-secrets controller
+- [x] sealed-secrets controller — `bitnami-labs/sealed-secrets` has moved to `bitnami/sealed-secrets`; the old `bitnami-labs.github.io` chart repo URL now 404s, use `https://bitnami.github.io/sealed-secrets` instead
 
-**Done when:** a test LoadBalancer Service gets an IP from the MetalLB pool, a test Ingress resolves, and a test PVC binds via NFS.
+**Done when:** a test LoadBalancer Service gets an IP from the MetalLB pool, a test Ingress resolves, and a test PVC binds via NFS. Partially done — MetalLB/ingress verified, NFS blocked on hardware.
 
 ## Phase 5 — GitOps app-of-apps
 
