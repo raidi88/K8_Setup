@@ -1,0 +1,91 @@
+# Namespace + config for the "Homepage" dashboard app (homepage.yaml, alongside this
+# file). Plain manifests, same mechanism terraria.yaml uses -- root-app applies
+# everything under gitops/apps/ directly, no separate Application needed for these.
+# Namespace gets a sync-wave so it lands before the ConfigMap/the homepage Application
+# tries to mount it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: homepage
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage-config
+  namespace: homepage
+data:
+  settings.yaml: |
+    title: Homelab
+    theme: dark
+    color: slate
+    headerStyle: clean
+    layout:
+      Media:
+        style: row
+        columns: 1
+      Downloads:
+        style: row
+        columns: 2
+      Games:
+        style: row
+        columns: 2
+      Remote Access & Files:
+        style: row
+        columns: 2
+      Infra:
+        style: row
+        columns: 2
+
+  services.yaml: |
+    - Media:
+        - Jellyfin:
+            href: https://jellyfin.homelab.local
+            description: Movies, home videos
+            icon: jellyfin.png
+    - Downloads:
+        - qBittorrent:
+            href: https://qbittorrent.homelab.local
+            description: Torrent client
+            icon: qbittorrent.png
+        - Whisparr:
+            href: https://whisparr.homelab.local
+            description: Library management
+            icon: whisparr.png
+    - Games:
+        - Minecraft:
+            href: http://192.168.0.243:25565
+            description: 192.168.0.243:25565
+            icon: minecraft.png
+        - Terraria:
+            href: http://192.168.0.244:7777
+            description: 192.168.0.244:7777
+            icon: terraria.png
+    - Remote Access & Files:
+        - Nextcloud:
+            href: https://nextcloud.homelab.local
+            description: Files, sync
+            icon: nextcloud.png
+        - RustDesk:
+            href: http://192.168.0.242
+            description: Relay/ID server
+            icon: rustdesk.png
+    - Infra:
+        - AdGuard Home:
+            href: https://adguard.homelab.local
+            description: DNS, ad-blocking
+            icon: adguard-home.png
+        - Vault:
+            href: https://vault.homelab.local
+            description: Secrets (sealed after restart)
+            icon: vault.png
+
+  widgets.yaml: |
+    - resources:
+        cpu: true
+        memory: true
+        disk: /
+
+  bookmarks.yaml: |
+    []
