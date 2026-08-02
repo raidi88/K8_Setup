@@ -1,0 +1,61 @@
+# Official chart: https://github.com/nextcloud/helm (nextcloud.github.io/helm — a
+# classic index.yaml repo, unlike jellyfin's OCI-only situation).
+#
+# Credentials come from SealedSecrets (nextcloud-admin-sealedsecret.yaml,
+# nextcloud-mariadb-sealedsecret.yaml, alongside this file) — never plaintext here,
+# per design.md. Only this cluster's sealed-secrets controller can decrypt them.
+#
+# Storage on local-path, NOT NFS — same situation as jellyfin.yaml, still on hold
+# pending real bulk-storage hardware. Small placeholder sizes.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nextcloud
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://nextcloud.github.io/helm/
+    chart: nextcloud
+    targetRevision: 9.2.5
+    helm:
+      valuesObject:
+        nextcloud:
+          host: nextcloud.homelab.local
+          existingSecret:
+            enabled: true
+            secretName: nextcloud-admin
+            usernameKey: nextcloud-username
+            passwordKey: nextcloud-password
+          trustedDomains:
+            - nextcloud.homelab.local
+
+        ingress:
+          enabled: true
+          className: nginx
+
+        persistence:
+          enabled: true
+          storageClass: local-path
+          size: 5Gi
+
+        mariadb:
+          enabled: true
+          auth:
+            database: nextcloud
+            username: nextcloud
+            existingSecret: nextcloud-mariadb
+          primary:
+            persistence:
+              enabled: true
+              storageClass: local-path
+              size: 5Gi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: nextcloud
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
