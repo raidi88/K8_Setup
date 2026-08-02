@@ -1,0 +1,28 @@
+# The "app of apps" root Application. ArgoCD watches this, which in turn watches
+# everything under gitops/apps/ — one child Application per service (Phase 6).
+#
+# NOT YET APPLIED — repoURL below is a placeholder. This repo has no git remote yet
+# (it's local-only on the workstation), and ArgoCD (running inside the cluster) can only
+# clone from a URL it can actually reach, e.g. a real GitHub repo. Once this repo is
+# pushed somewhere reachable, update repoURL and apply with:
+#   kubectl --kubeconfig infra/kubeconfig apply -f gitops/root-app.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/raidi88/K8_Setup.git # placeholder — confirm/replace once pushed
+    targetRevision: main
+    path: gitops/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
