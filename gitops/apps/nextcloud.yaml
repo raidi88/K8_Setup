@@ -30,6 +30,20 @@ spec:
           trustedDomains:
             - nextcloud.homelab.local
 
+        internalDatabase:
+          enabled: false
+
+        externalDatabase:
+          enabled: true
+          type: mysql
+          host: nextcloud-mariadb
+          user: nextcloud
+          database: nextcloud
+          existingSecret:
+            enabled: true
+            secretName: nextcloud-mariadb
+            passwordKey: mariadb-password
+
         ingress:
           enabled: true
           className: nginx
