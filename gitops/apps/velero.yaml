@@ -1,0 +1,76 @@
+# Phase 7 backup. Chose Velero over plain Proxmox VM snapshots — this is a k8s-learning
+# project (see design.md), and Velero teaches real backup/restore at the k8s-resource
+# level (can restore a single namespace/PVC, not just "the whole VM"), which VM
+# snapshots can't do.
+#
+# Backend: the self-hosted MinIO in minio.yaml (S3-compatible), via the AWS plugin
+# (works with any S3-compatible endpoint, not just real AWS). `deployNodeAgent: true`
+# enables Velero's kopia-based file-system backup for PV data (there's no CSI snapshot
+# driver on local-path/NFS volumes here, so `snapshotsEnabled: false` — fs-backup is the
+# only option that actually works on this cluster).
+#
+# Real limitation, same one minio.yaml already flags: the backup target lives on the
+# same node/disk as everything it backs up. This protects against operator error and
+# bad deploys, not hardware failure — there's no second physical disk in this homelab
+# for real off-node backup. Revisit if/when one gets added.
+#
+# ServerSideApply is needed here (not on any other app in this repo) because Velero's
+# CRDs are large enough to blow past the ~262KB last-applied-configuration annotation
+# limit that ArgoCD's normal client-side apply hits.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: velero
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://vmware-tanzu.github.io/helm-charts
+    chart: velero
+    targetRevision: 9.2.0
+    helm:
+      valuesObject:
+        initContainers:
+          - name: velero-plugin-for-aws
+            image: velero/velero-plugin-for-aws:v1.11.0
+            volumeMounts:
+              - mountPath: /target
+                name: plugins
+
+        credentials:
+          existingSecret: cloud-credentials
+
+        configuration:
+          backupStorageLocation:
+            - name: default
+              provider: aws
+              bucket: velero-backups
+              config:
+                region: minio
+                s3ForcePathStyle: true
+                s3Url: http://minio.minio.svc.cluster.local:9000
+
+        deployNodeAgent: true
+        snapshotsEnabled: false
+
+        schedules:
+          daily-full-backup:
+            disabled: false
+            schedule: "0 3 * * *"
+            template:
+              ttl: "240h0m0s"
+              defaultVolumesToFsBackup: true
+              excludedNamespaces:
+                - kube-system
+                - kube-node-lease
+                - kube-public
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: velero
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
