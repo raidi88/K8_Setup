@@ -46,20 +46,26 @@ spec:
       containers:
         - name: terraria
           image: ryshe/terraria:vanilla-latest
-          # Assumption to verify: -autocreate should be a no-op if the -world file
-          # already exists, making this safe to pass on every restart. Confirming by
-          # restarting the pod after first boot -- see implementation-plan.md.
+          # -autocreate is NOT idempotent -- confirmed by restarting the pod after first
+          # boot, which regenerated a brand new world from scratch, discarding the old
+          # one. The image's own entrypoint (/terraria-server/bootstrap.sh) only has two
+          # modes: always-autocreate (if WORLD_FILENAME unset), or load-existing-or-fail
+          # (if WORLD_FILENAME set) -- no built-in "create if missing, else load" mode.
+          # This wrapper implements that missing third mode ourselves.
+          command: ["/bin/sh", "-c"]
           args:
-            - -world
-            - /root/.local/share/Terraria/Worlds/world.wld
-            - -autocreate
-            - "2" # 1=small, 2=medium, 3=large
+            - |
+              set -e
+              WORLD_FILE="$WORLDPATH/world.wld"
+              if [ -f "$WORLD_FILE" ]; then
+                export WORLD_FILENAME="world.wld"
+                exec /terraria-server/bootstrap.sh -maxplayers 8
+              else
+                exec /terraria-server/bootstrap.sh -world "$WORLD_FILE" -autocreate 2 -maxplayers 8
+              fi
           ports:
             - containerPort: 7777
               protocol: TCP
-          env:
-            - name: MAX_PLAYERS
-              value: "8"
           resources:
             requests:
               cpu: 250m
