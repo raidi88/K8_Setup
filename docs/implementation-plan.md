@@ -39,13 +39,15 @@ Derived from [`design.md`](design.md). Worked phase by phase, pair-programming s
 
 **Hard-won lesson:** each VM independently downloading the ~80MB k3s binary from GitHub took 20-30+ minutes on this network — confirmed as a genuine link-level bottleneck (a Debian mirror and Rancher's own mirror were equally slow at the time), not GitHub-specific throttling. Fixed by fetching the binary once to a local, resumable, checksum-verified cache and pushing it to all 3 VMs over the fast LAN (`infra/k3s.tf`), installing with `INSTALL_K3S_SKIP_DOWNLOAD=true` instead of letting each node hit GitHub itself.
 
-## Phase 3 — One-time manual seam: Helm + ArgoCD
+## Phase 3 — One-time manual seam: Helm + ArgoCD ✅ done
 
-- [ ] Install Helm on control-plane (or from workstation against the cluster)
-- [ ] Install ArgoCD via its Helm chart
-- [ ] Retrieve ArgoCD admin password, confirm UI/CLI access
+- [x] Install Helm on control-plane (or from workstation against the cluster) — used Terraform's `hashicorp/helm` provider from the workstation instead (`infra/argocd.tf`), not a manual CLI install
+- [x] Install ArgoCD via its Helm chart
+- [x] Retrieve ArgoCD admin password, confirm UI/CLI access — reachable via `kubectl port-forward svc/argocd-server -n argocd 8080:443`, credentials in the gitignored `CREDENTIALS.md`
 
-**Done when:** `argocd app list` runs successfully (empty list is fine) — this is the last manually-applied step before GitOps takes over.
+**Done when:** `argocd app list` runs successfully (empty list is fine) — this is the last manually-applied step before GitOps takes over. ✅ Verified — all 7 pods `Running`, UI reachable.
+
+**Extra (not in the original design, done at the user's request):** both the Proxmox UI and ArgoCD had self-signed-cert browser warnings. Fixed with a local trusted CA via `mkcert` (installed to the Windows system trust store), certs deployed to `pveproxy` on the Proxmox host and as a `argocd-server-tls` secret for `argocd-server`. Cert/key files live in `infra/.certs/` (gitignored).
 
 ## Phase 4 — Core cluster services
 
