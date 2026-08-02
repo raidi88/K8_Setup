@@ -64,11 +64,13 @@ These are the shared platform pieces every app depends on. Can be applied via Ar
 
 ## Phase 5 — GitOps app-of-apps
 
-- [ ] Root ArgoCD `Application` in `gitops/` pointing at child `Application` manifests
-- [ ] Auto-sync + prune enabled
-- [ ] Confirm a push to `gitops/` triggers a sync without manual intervention
+- [x] Root ArgoCD `Application` in `gitops/` pointing at child `Application` manifests — `gitops/root-app.yaml`, applied, shows `Synced`/`Healthy`
+- [x] Auto-sync + prune enabled — `syncPolicy.automated.prune/selfHeal: true`
+- [ ] Confirm a push to `gitops/` triggers a sync without manual intervention — can't fully verify yet since `gitops/apps/` is still empty (no child Applications to edit). Revisit once Phase 6 adds the first one.
 
-**Done when:** editing a child Application's Helm values and pushing causes ArgoCD to reconcile automatically.
+**Required this repo have a real git remote first** — it didn't (local-only). Now pushed to [github.com/raidi88/K8_Setup](https://github.com/raidi88/K8_Setup) (public), using `gh auth login` (browser device-code flow — no API key/token ever pasted into chat).
+
+**Done when:** editing a child Application's Helm values and pushing causes ArgoCD to reconcile automatically. Mostly done — root app confirmed syncing from the real repo; full edit-and-reconcile test pending Phase 6.
 
 ## Phase 6 — App rollout (in this order, per `design.md`)
 
