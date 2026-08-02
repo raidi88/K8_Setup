@@ -74,7 +74,7 @@ These are the shared platform pieces every app depends on. Can be applied via Ar
 
 ## Phase 6 — App rollout (in this order, per `design.md`)
 
-- [ ] 1. Jellyfin — Helm chart, NFS PVC for media
+- [x] 1. Jellyfin — no official Helm chart exists; used `bjw-s-labs/helm-charts`' `app-template` (OCI, `ghcr.io/bjw-s-labs/helm` + `chart: app-template` — ArgoCD needs `chart` as a separate field even for OCI repos, `repoURL` alone isn't enough). PVC on `local-path`, NOT NFS (still on hold) — small placeholder sizes (1Gi config / 5Gi media), migrate once real storage is available. Verified end-to-end via curl through MetalLB → ingress-nginx (302, Jellyfin's setup-wizard redirect).
 - [ ] 2. Nextcloud — Helm chart + mariadb subchart, NFS PVC for files
 - [ ] 3. Adguard Home — MetalLB LoadBalancer IP, port 53
 - [ ] 4. Rustdesk-server — hbbs/hbbr only, PVC for ID keys
