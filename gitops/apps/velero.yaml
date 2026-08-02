@@ -30,21 +30,22 @@ spec:
     targetRevision: 9.2.0
     helm:
       valuesObject:
-        # Chart default (bitnami/kubectl, tag = cluster's k8s minor version) is broken:
-        # Bitnami stopped publishing plain version tags in favor of sha256-only
-        # "secure image" releases (same pattern already hit with sealed-secrets' chart
-        # repo move, see core-services.tf) -- docker.io/bitnami/kubectl:1.36 404s, only
-        # `:latest` still resolves. Deliberately staying on bitnami/kubectl rather than
-        # switching families (e.g. rancher/kubectl, Alpine/musl-based) -- this job's
-        # main container (velero/velero, glibc-based) borrows /bin/sh and /bin/kubectl
-        # from this init container via a shared emptyDir, which only works if both
-        # images share the same libc. Confirmed by testing: the musl-based swap failed
-        # silently (job errored with no useful log before ArgoCD's hook retry cleaned
-        # the pod up -- had to run the same image manually to see the real exec error).
-        kubectl:
-          image:
-            repository: bitnami/kubectl
-            tag: latest
+        # Disabled the chart's `upgradeCRDsJob` PreSync hook (kept failing regardless of
+        # which kubectl image was configured -- it works by having an init container
+        # `cp`-copy /bin/sh and /bin/kubectl into a shared emptyDir for the main
+        # container (velero/velero, which has no shell of its own) to exec. Tried
+        # rancher/kubectl (Alpine/musl) and bitnami/kubectl:latest (the chart's default
+        # `:1.36` 404s -- Bitnami stopped publishing plain version tags, only sha256
+        # digests now, same pattern already hit with sealed-secrets' chart repo move,
+        # see core-services.tf); the copied `sh` failed both times with a missing
+        # shared-library error (musl mismatch, then `libreadline.so.8` not present in
+        # velero/velero's image) -- the whole binary-borrowing trick is inherently
+        # fragile across different base images and not worth chasing further.
+        # Not a real loss: the chart's standard `crds/` directory (independent of this
+        # hook) already installs all CRDs on first sync via Helm's normal mechanism --
+        # this hook only matters for keeping CRDs current across chart *upgrades*,
+        # which barely applies to a homelab pinned to one chart version.
+        upgradeCRDs: false
 
         initContainers:
           - name: velero-plugin-for-aws
