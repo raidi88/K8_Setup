@@ -1,0 +1,86 @@
+# Plain manifests, not a Helm chart -- per design.md, the Terraria chart ecosystem is
+# less mature than the other apps'. root-app applies everything in gitops/apps/ as flat
+# manifests (same mechanism the SealedSecrets use), so this doesn't need to be wrapped
+# in its own ArgoCD Application/Helm chart -- these resources just need an explicit
+# namespace (set below) and a sync-wave to make sure the Namespace itself lands before
+# anything that depends on it existing.
+#
+# Storage on local-path, NOT NFS — same situation as the other apps, still on hold.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: terraria
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: terraria-world
+  namespace: terraria
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: terraria
+  namespace: terraria
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: terraria
+  template:
+    metadata:
+      labels:
+        app: terraria
+    spec:
+      containers:
+        - name: terraria
+          image: ryshe/terraria:vanilla-latest
+          ports:
+            - containerPort: 7777
+              protocol: TCP
+          env:
+            - name: WORLD_NAME
+              value: "world"
+            - name: MAX_PLAYERS
+              value: "8"
+            - name: AUTO_CREATE
+              value: "2" # medium-sized world if none exists yet
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: world
+              mountPath: /root/.local/share/Terraria
+      volumes:
+        - name: world
+          persistentVolumeClaim:
+            claimName: terraria-world
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: terraria
+  namespace: terraria
+spec:
+  type: LoadBalancer
+  selector:
+    app: terraria
+  ports:
+    - name: game
+      port: 7777
+      targetPort: 7777
+      protocol: TCP
