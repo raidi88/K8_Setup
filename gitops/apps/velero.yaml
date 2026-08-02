@@ -30,6 +30,16 @@ spec:
     targetRevision: 9.2.0
     helm:
       valuesObject:
+        # Chart default (bitnami/kubectl, tag = cluster's k8s minor version) is broken:
+        # Bitnami stopped publishing plain version tags in favor of sha256-only
+        # "secure image" releases (same pattern already hit with sealed-secrets' chart
+        # repo move, see core-services.tf) -- docker.io/bitnami/kubectl:1.36 404s.
+        # rancher/kubectl still publishes normal version tags.
+        kubectl:
+          image:
+            repository: rancher/kubectl
+            tag: v1.36.2
+
         initContainers:
           - name: velero-plugin-for-aws
             image: velero/velero-plugin-for-aws:v1.11.0
