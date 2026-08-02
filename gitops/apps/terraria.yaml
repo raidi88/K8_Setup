@@ -46,16 +46,20 @@ spec:
       containers:
         - name: terraria
           image: ryshe/terraria:vanilla-latest
+          # Assumption to verify: -autocreate should be a no-op if the -world file
+          # already exists, making this safe to pass on every restart. Confirming by
+          # restarting the pod after first boot -- see implementation-plan.md.
+          args:
+            - -world
+            - /root/.local/share/Terraria/Worlds/world.wld
+            - -autocreate
+            - "2" # 1=small, 2=medium, 3=large
           ports:
             - containerPort: 7777
               protocol: TCP
           env:
-            - name: WORLD_NAME
-              value: "world"
             - name: MAX_PLAYERS
               value: "8"
-            - name: AUTO_CREATE
-              value: "2" # medium-sized world if none exists yet
           resources:
             requests:
               cpu: 250m
@@ -64,7 +68,7 @@ spec:
               memory: 1Gi
           volumeMounts:
             - name: world
-              mountPath: /root/.local/share/Terraria
+              mountPath: /root/.local/share/Terraria/Worlds
       volumes:
         - name: world
           persistentVolumeClaim:
