@@ -1,0 +1,82 @@
+# Jellyfin has no official Helm chart, so this uses bjw-s's "app-template" — the
+# de facto standard the self-hosted community uses for wrapping a plain container image
+# in a proper Deployment/Service/Ingress/PVC set. (TrueCharts, the other common option,
+# has restructured its chart hosting twice in ways that broke the expected URLs — see
+# core-services.tf's sealed-secrets fix for a similar case — so app-template was picked
+# as the more stable option.)
+#
+# Storage is on local-path (k3s's built-in default), NOT NFS — that's still on hold
+# pending real bulk-storage hardware (see docs/implementation-plan.md, Phase 4). Sizes
+# here are deliberately small placeholders, not real media-library sizes; migrate to an
+# NFS-backed storageClass once available.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jellyfin
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: oci://ghcr.io/bjw-s-labs/helm/app-template
+    targetRevision: 5.0.1
+    helm:
+      valuesObject:
+        controllers:
+          jellyfin:
+            containers:
+              app:
+                image:
+                  repository: jellyfin/jellyfin
+                  tag: latest
+                env:
+                  TZ: "Etc/UTC"
+                resources:
+                  requests:
+                    cpu: 250m
+                    memory: 512Mi
+                  limits:
+                    memory: 2Gi
+
+        service:
+          app:
+            controller: jellyfin
+            ports:
+              http:
+                port: 8096
+
+        ingress:
+          app:
+            className: nginx
+            hosts:
+              - host: jellyfin.homelab.local
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    service:
+                      identifier: app
+                      port: http
+
+        persistence:
+          config:
+            enabled: true
+            accessMode: ReadWriteOnce
+            size: 1Gi
+            storageClass: local-path
+            globalMounts:
+              - path: /config
+          media:
+            enabled: true
+            accessMode: ReadWriteOnce
+            size: 5Gi
+            storageClass: local-path
+            globalMounts:
+              - path: /media
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jellyfin
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
