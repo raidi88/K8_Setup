@@ -80,6 +80,10 @@ data:
             href: https://vault.homelab.local
             description: Secrets (sealed after restart)
             icon: vault.png
+        - CI Runs:
+            href: https://github.com/raidi88/K8_Setup/actions
+            description: GitHub Actions -- manifest/terraform validation
+            icon: github-actions.png
 
   widgets.yaml: |
     - resources:
