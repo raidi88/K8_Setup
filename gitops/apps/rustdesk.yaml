@@ -1,0 +1,88 @@
+# hbbs (ID/rendezvous server) and hbbr (relay server) run as two containers in ONE pod
+# (via app-template), not two separate Deployments. They need to share a key directory
+# (/root, holds the generated id_ed25519 keypair) — putting them in the same pod lets
+# them share one PVC without cross-pod ReadWriteOnce fragility, and hbbs can reach hbbr
+# over 127.0.0.1 for the relay handoff instead of needing a separate Service between them.
+#
+# Relay/ID server only, per design.md — no desktop VM, Proxmox host is headless.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rustdesk
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ghcr.io/bjw-s-labs/helm
+    chart: app-template
+    targetRevision: 5.0.1
+    helm:
+      valuesObject:
+        controllers:
+          rustdesk:
+            containers:
+              hbbs:
+                image:
+                  repository: rustdesk/rustdesk-server
+                  tag: latest
+                command: ["hbbs"]
+                args: ["-r", "127.0.0.1:21117"]
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+                  limits:
+                    memory: 256Mi
+              hbbr:
+                image:
+                  repository: rustdesk/rustdesk-server
+                  tag: latest
+                command: ["hbbr"]
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+                  limits:
+                    memory: 256Mi
+
+        service:
+          app:
+            controller: rustdesk
+            type: LoadBalancer
+            ports:
+              p21115:
+                port: 21115
+                protocol: TCP
+              p21116tcp:
+                port: 21116
+                protocol: TCP
+              p21116udp:
+                port: 21116
+                protocol: UDP
+              p21117:
+                port: 21117
+                protocol: TCP
+              p21118:
+                port: 21118
+                protocol: TCP
+              p21119:
+                port: 21119
+                protocol: TCP
+
+        persistence:
+          data:
+            enabled: true
+            accessMode: ReadWriteOnce
+            size: 256Mi
+            storageClass: local-path
+            globalMounts:
+              - path: /root
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rustdesk
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
