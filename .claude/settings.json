@@ -4,10 +4,10 @@
       "Bash(tasklist *)",
       "Bash(terraform plan *)",
       "Bash(kubectl --kubeconfig kubeconfig get *)",
-      "Bash(terraform validate*)",
+      "Bash(terraform validate *)",
       "Bash(ping *)",
-      "Bash(terraform state list*)",
-      "Bash(wmic process where*)",
+      "Bash(terraform state list *)",
+      "Bash(wmic process where *)",
       "Bash(nslookup *)"
     ]
   }

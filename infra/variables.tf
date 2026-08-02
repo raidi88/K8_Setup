@@ -42,3 +42,8 @@ variable "ssh_public_key_path" {
   type    = string
   default = "~/.ssh/homelab_k3s_ed25519.pub"
 }
+
+variable "tailscale_auth_key" {
+  type      = string
+  sensitive = true
+}

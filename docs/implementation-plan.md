@@ -55,12 +55,12 @@ These are the shared platform pieces every app depends on. Can be applied via Ar
 
 - [x] MetalLB (L2 mode), IP pool sized for all planned LoadBalancer services — `192.168.0.240-192.168.0.250`, picked after an `nmap -sn` sweep of the LAN found only .1/.150-153/.179 active. Flag if this overlaps your router's DHCP range.
 - [x] ingress-nginx — confirmed working end-to-end: its controller Service got `192.168.0.240`, the first address in the MetalLB pool
-- [ ] `nfs-subdir-external-provisioner`, pointed at the host's NFS export of the USB HDD — **blocked**: the only USB storage currently attached to the Proxmox host is a 29GB stick (`lsusb` confirms it, `lsblk` shows the small size), not a bulk-storage HDD. This doesn't match the design's "external USB HDD for media/files/game worlds." Needs the real drive physically connected before this can proceed.
-- [ ] Tailscale subnet router (one node), advertising the MetalLB pool range — **blocked**: needs an auth key from your own Tailscale account, which only you can generate
+- [ ] `nfs-subdir-external-provisioner`, pointed at the host's NFS export of the USB HDD — **on hold**: the only USB storage attached to the Proxmox host is a 29GB stick (`lsusb`/`lsblk` confirm it), not a bulk-storage HDD. User is holding off on this for now.
+- [x] Tailscale subnet router (one node), advertising the MetalLB pool range — `infra/tailscale.tf`, runs as a systemd service directly on `k3s-control-plane` (not a k8s-native pod), advertises `192.168.0.240/28` (tightest CIDR covering the MetalLB pool). **Advertised route still needs manual approval** at https://login.tailscale.com/admin/machines — this is separate from device auth even with a pre-authorized key, by Tailscale's design.
 - [ ] Adguard Home configured as tailnet DNS (later, once Adguard itself is deployed in Phase 6)
 - [x] sealed-secrets controller — `bitnami-labs/sealed-secrets` has moved to `bitnami/sealed-secrets`; the old `bitnami-labs.github.io` chart repo URL now 404s, use `https://bitnami.github.io/sealed-secrets` instead
 
-**Done when:** a test LoadBalancer Service gets an IP from the MetalLB pool, a test Ingress resolves, and a test PVC binds via NFS. Partially done — MetalLB/ingress verified, NFS blocked on hardware.
+**Done when:** a test LoadBalancer Service gets an IP from the MetalLB pool, a test Ingress resolves, and a test PVC binds via NFS. Mostly done — MetalLB/ingress/Tailscale verified, NFS on hold pending the right hardware.
 
 ## Phase 5 — GitOps app-of-apps
 

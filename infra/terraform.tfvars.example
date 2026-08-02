@@ -1,2 +1,3 @@
 proxmox_api_token_id     = "root@pam!terraform"
 proxmox_api_token_secret = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+tailscale_auth_key       = "tskey-auth-xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
