@@ -17,7 +17,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: oci://ghcr.io/bjw-s-labs/helm/app-template
+    repoURL: ghcr.io/bjw-s-labs/helm
+    chart: app-template
     targetRevision: 5.0.1
     helm:
       valuesObject:
