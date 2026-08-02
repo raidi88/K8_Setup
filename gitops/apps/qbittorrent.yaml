@@ -1,0 +1,97 @@
+# qBittorrent, paired with Whisparr (whisparr.yaml) for automated download management.
+#
+# Storage constraint worth knowing: the media drives (/mnt/media1, /mnt/media2) are
+# deliberately read-only to protect the existing library, so downloads can't land
+# there directly, and there's no other real bulk-writable storage attached yet. The
+# downloads volume below is a small local-path placeholder -- fine for testing, not
+# sized for serious downloading. Needs real writable storage to scale (a new/different
+# drive, or a deliberate decision to make one of the existing ones read-write).
+#
+# Also: no port forwarding (CGNAT, per design.md), so this can't accept inbound
+# connections from WAN peers -- works fine on the LAN/tailnet, but torrent performance
+# depends on outbound-initiated peers/DHT rather than true two-way connectivity.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: qbittorrent
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ghcr.io/bjw-s-labs/helm
+    chart: app-template
+    targetRevision: 5.0.1
+    helm:
+      valuesObject:
+        controllers:
+          qbittorrent:
+            containers:
+              app:
+                image:
+                  repository: linuxserver/qbittorrent
+                  tag: latest
+                env:
+                  PUID: "1000"
+                  PGID: "1000"
+                  TZ: "Etc/UTC"
+                  WEBUI_PORT: "8080"
+                resources:
+                  requests:
+                    cpu: 250m
+                    memory: 256Mi
+                  limits:
+                    memory: 1Gi
+
+        service:
+          web:
+            controller: qbittorrent
+            ports:
+              http:
+                port: 8080
+          torrent:
+            controller: qbittorrent
+            type: LoadBalancer
+            ports:
+              torrent-tcp:
+                port: 6881
+                protocol: TCP
+              torrent-udp:
+                port: 6881
+                protocol: UDP
+
+        ingress:
+          web:
+            className: nginx
+            hosts:
+              - host: qbittorrent.homelab.local
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    service:
+                      identifier: web
+                      port: http
+
+        persistence:
+          config:
+            enabled: true
+            accessMode: ReadWriteOnce
+            size: 1Gi
+            storageClass: local-path
+            globalMounts:
+              - path: /config
+          downloads:
+            enabled: true
+            accessMode: ReadWriteOnce
+            size: 10Gi
+            storageClass: local-path
+            globalMounts:
+              - path: /downloads
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: downloads
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,96 @@
+# Whisparr -- the Sonarr/Radarr equivalent for this content type, per the user's request.
+# No actively-maintained official/linuxserver image exists; ghcr.io/hotio/whisparr is
+# the community-standard choice (linuxserver/whisparr and thespad/whisparr are both
+# stale, last updated 2022).
+#
+# Same namespace as qbittorrent (qbittorrent.yaml) so it can share the downloads PVC by
+# name via existingClaim, instead of needing a cross-namespace volume (PVCs are
+# namespace-scoped). Also mounts the existing media drives read-only, same as
+# jellyfin.yaml, so it can scan/match the existing library -- it just can't reorganize
+# or write into it, since the export is deliberately read-only.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: whisparr
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ghcr.io/bjw-s-labs/helm
+    chart: app-template
+    targetRevision: 5.0.1
+    helm:
+      valuesObject:
+        controllers:
+          whisparr:
+            containers:
+              app:
+                image:
+                  repository: ghcr.io/hotio/whisparr
+                  tag: latest
+                env:
+                  PUID: "1000"
+                  PGID: "1000"
+                  TZ: "Etc/UTC"
+                resources:
+                  requests:
+                    cpu: 250m
+                    memory: 256Mi
+                  limits:
+                    memory: 1Gi
+
+        service:
+          app:
+            controller: whisparr
+            ports:
+              http:
+                port: 6969
+
+        ingress:
+          app:
+            className: nginx
+            hosts:
+              - host: whisparr.homelab.local
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    service:
+                      identifier: app
+                      port: http
+
+        persistence:
+          config:
+            enabled: true
+            accessMode: ReadWriteOnce
+            size: 1Gi
+            storageClass: local-path
+            globalMounts:
+              - path: /config
+          downloads:
+            type: persistentVolumeClaim
+            existingClaim: qbittorrent-downloads
+            globalMounts:
+              - path: /downloads
+          media1:
+            type: nfs
+            server: 192.168.0.150
+            path: /mnt/media1
+            globalMounts:
+              - path: /media/drive1
+                readOnly: true
+          media2:
+            type: nfs
+            server: 192.168.0.150
+            path: /mnt/media2
+            globalMounts:
+              - path: /media/drive2
+                readOnly: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: downloads
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
