@@ -42,6 +42,7 @@ spec:
           existingSecret:
             enabled: true
             secretName: nextcloud-mariadb
+            usernameKey: db-username
             passwordKey: mariadb-password
 
         ingress:
