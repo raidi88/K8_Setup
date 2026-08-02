@@ -112,74 +112,9 @@ resource "helm_release" "sealed_secrets" {
   depends_on = [null_resource.k3s_cluster]
 }
 
-# NFS storage, one provisioner+storage class per physical media drive on the Proxmox
-# host (mounted read-only there, exported via NFS — see docs/implementation-plan.md
-# Phase 4 for the mount/export setup). Two separate storage classes rather than one
-# because the drives are genuinely separate volumes with separate free space, not one
-# combined pool.
-resource "helm_release" "nfs_media1" {
-  name             = "nfs-media1"
-  repository       = "https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner"
-  chart            = "nfs-subdir-external-provisioner"
-  version          = "~> 4.0"
-  namespace        = "nfs-provisioner"
-  create_namespace = true
-
-  set {
-    name  = "nfs.server"
-    value = "192.168.0.150"
-  }
-  set {
-    name  = "nfs.path"
-    value = "/mnt/media1"
-  }
-  set {
-    name  = "storageClass.name"
-    value = "nfs-media1"
-  }
-  set {
-    name  = "storageClass.defaultClass"
-    value = "false"
-  }
-  # The export itself is read-only (the drives are mounted ro on the Proxmox host to
-  # protect the existing media) -- disable the provisioner's default archive-on-delete
-  # behavior since it would need write access to do anything on reclaim anyway.
-  set {
-    name  = "storageClass.archiveOnDelete"
-    value = "false"
-  }
-
-  depends_on = [null_resource.k3s_cluster]
-}
-
-resource "helm_release" "nfs_media2" {
-  name             = "nfs-media2"
-  repository       = "https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner"
-  chart            = "nfs-subdir-external-provisioner"
-  version          = "~> 4.0"
-  namespace        = "nfs-provisioner"
-  create_namespace = false
-
-  set {
-    name  = "nfs.server"
-    value = "192.168.0.150"
-  }
-  set {
-    name  = "nfs.path"
-    value = "/mnt/media2"
-  }
-  set {
-    name  = "storageClass.name"
-    value = "nfs-media2"
-  }
-  set {
-    name  = "storageClass.defaultClass"
-    value = "false"
-  }
-  set {
-    name  = "storageClass.archiveOnDelete"
-    value = "false"
-  }
-
-  depends_on = [helm_release.nfs_media1]
-}
+# NOTE: nfs-subdir-external-provisioner was tried here and removed. It dynamically
+# creates a NEW empty subdirectory per PVC -- it can't expose an already-populated
+# media tree, and it needs write access to the export root to create those
+# subdirectories, which the read-only export (deliberately read-only, to protect the
+# existing media) blocks outright. Static PersistentVolumes are the correct tool for
+# "expose this existing read-only NFS tree" -- see gitops/apps/jellyfin-media-pv.yaml.

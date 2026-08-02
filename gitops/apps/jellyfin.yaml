@@ -5,10 +5,13 @@
 # core-services.tf's sealed-secrets fix for a similar case — so app-template was picked
 # as the more stable option.)
 #
-# Storage is on local-path (k3s's built-in default), NOT NFS — that's still on hold
-# pending real bulk-storage hardware (see docs/implementation-plan.md, Phase 4). Sizes
-# here are deliberately small placeholders, not real media-library sizes; migrate to an
-# NFS-backed storageClass once available.
+# Config stays on local-path (small, needs read-write for Jellyfin's DB/settings).
+# Media mounts the two real drives directly via app-template's `type: nfs` persistence
+# (not a PVC/StorageClass) -- nfs-subdir-external-provisioner was tried first and
+# doesn't work here: it dynamically creates a NEW empty subdirectory per PVC, which
+# both can't expose an already-populated media tree and needs write access to the
+# export root, which the deliberately-read-only export blocks. `type: nfs` just mounts
+# the existing export directly, read-only, which is what this actually needs.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -65,13 +68,20 @@ spec:
             storageClass: local-path
             globalMounts:
               - path: /config
-          media:
-            enabled: true
-            accessMode: ReadWriteOnce
-            size: 5Gi
-            storageClass: local-path
+          media1:
+            type: nfs
+            server: 192.168.0.150
+            path: /mnt/media1
             globalMounts:
-              - path: /media
+              - path: /media/drive1
+                readOnly: true
+          media2:
+            type: nfs
+            server: 192.168.0.150
+            path: /mnt/media2
+            globalMounts:
+              - path: /media/drive2
+                readOnly: true
   destination:
     server: https://kubernetes.default.svc
     namespace: jellyfin
