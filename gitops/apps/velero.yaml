@@ -33,12 +33,18 @@ spec:
         # Chart default (bitnami/kubectl, tag = cluster's k8s minor version) is broken:
         # Bitnami stopped publishing plain version tags in favor of sha256-only
         # "secure image" releases (same pattern already hit with sealed-secrets' chart
-        # repo move, see core-services.tf) -- docker.io/bitnami/kubectl:1.36 404s.
-        # rancher/kubectl still publishes normal version tags.
+        # repo move, see core-services.tf) -- docker.io/bitnami/kubectl:1.36 404s, only
+        # `:latest` still resolves. Deliberately staying on bitnami/kubectl rather than
+        # switching families (e.g. rancher/kubectl, Alpine/musl-based) -- this job's
+        # main container (velero/velero, glibc-based) borrows /bin/sh and /bin/kubectl
+        # from this init container via a shared emptyDir, which only works if both
+        # images share the same libc. Confirmed by testing: the musl-based swap failed
+        # silently (job errored with no useful log before ArgoCD's hook retry cleaned
+        # the pod up -- had to run the same image manually to see the real exec error).
         kubectl:
           image:
-            repository: rancher/kubectl
-            tag: v1.36.2
+            repository: bitnami/kubectl
+            tag: latest
 
         initContainers:
           - name: velero-plugin-for-aws
