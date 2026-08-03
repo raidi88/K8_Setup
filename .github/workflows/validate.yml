@@ -45,10 +45,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
       - run: terraform fmt -check -recursive
-      # core-services.tf's file() calls need *something* on disk to read -- the real
-      # certs are gitignored (self-signed, generated locally by mkcert). Dummy content
-      # is fine: validate only checks config is well-formed, it never applies these.
-      - name: Placeholder certs (validate doesn't need real ones)
-        run: mkdir -p .certs && echo "placeholder" > .certs/ingress.pem && echo "placeholder" > .certs/ingress-key.pem
+      # core-services.tf's file() calls (and providers.tf's SSH key) need *something* on
+      # disk to read -- the real certs/key are gitignored (self-signed cert from mkcert,
+      # real SSH key generated locally). Dummy content is fine: validate only checks
+      # config is well-formed, it never applies these.
+      - name: Placeholders for file()-referenced secrets (validate doesn't need real ones)
+        run: |
+          mkdir -p .certs && echo "placeholder" > .certs/ingress.pem && echo "placeholder" > .certs/ingress-key.pem
+          mkdir -p ~/.ssh && echo "placeholder" > ~/.ssh/homelab_k3s_ed25519
       - run: terraform init -backend=false
       - run: terraform validate
