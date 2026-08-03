@@ -84,6 +84,17 @@ data:
             href: https://github.com/raidi88/K8_Setup/actions
             description: GitHub Actions -- manifest/terraform validation
             icon: github-actions.png
+            widget:
+              type: customapi
+              url: https://api.github.com/repos/raidi88/K8_Setup/actions/runs?per_page=5
+              refreshInterval: 300000
+              display: dynamic-list
+              mappings:
+                items: workflow_runs
+                name: display_title
+                label: conclusion
+                target: "{html_url}"
+                limit: 5
         - Vaultwarden:
             href: https://vaultwarden.homelab.local
             description: Password manager (phone/browser sync)
