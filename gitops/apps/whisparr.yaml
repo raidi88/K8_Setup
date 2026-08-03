@@ -50,8 +50,8 @@ spec:
           app:
             className: nginx
             annotations:
-              nginx.ingress.kubernetes.io/limit-rps: "10"
-              nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
+              nginx.ingress.kubernetes.io/limit-rps: "30"
+              nginx.ingress.kubernetes.io/limit-burst-multiplier: "10"
             hosts:
               - host: whisparr.homelab.local
                 paths:

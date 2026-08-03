@@ -83,7 +83,7 @@ data:
         - CI Runs:
             href: https://github.com/raidi88/K8_Setup/actions
             description: GitHub Actions -- manifest/terraform validation
-            icon: github-actions.png
+            icon: github.png
             widget:
               type: customapi
               url: https://api.github.com/repos/raidi88/K8_Setup/actions/runs?per_page=5
