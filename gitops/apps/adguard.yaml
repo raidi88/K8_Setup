@@ -55,6 +55,9 @@ spec:
         ingress:
           web:
             className: nginx
+            annotations:
+              nginx.ingress.kubernetes.io/limit-rps: "10"
+              nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
             hosts:
               - host: adguard.homelab.local
                 paths:
