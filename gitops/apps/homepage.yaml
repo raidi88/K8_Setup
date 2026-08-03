@@ -82,6 +82,23 @@ spec:
               - path: /app/config/bookmarks.yaml
                 subPath: bookmarks.yaml
                 readOnly: true
+          # Read-only, same NFS export as jellyfin.yaml -- purely so the resource
+          # widget can report real usage on the actual bulk media drives, not just
+          # this pod's tiny local-path root disk (which is what it showed before).
+          media1:
+            type: nfs
+            server: 192.168.0.150
+            path: /mnt/media1
+            globalMounts:
+              - path: /mnt/media1
+                readOnly: true
+          media2:
+            type: nfs
+            server: 192.168.0.150
+            path: /mnt/media2
+            globalMounts:
+              - path: /mnt/media2
+                readOnly: true
   destination:
     server: https://kubernetes.default.svc
     namespace: homepage

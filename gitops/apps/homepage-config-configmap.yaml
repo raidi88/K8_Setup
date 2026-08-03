@@ -89,7 +89,14 @@ data:
     - resources:
         cpu: true
         memory: true
+        label: node
         disk: /
+    - resources:
+        label: media1 (drive1, ~7.3TB)
+        disk: /mnt/media1
+    - resources:
+        label: media2 (drive2, ~3.6TB)
+        disk: /mnt/media2
 
   bookmarks.yaml: |
     []
