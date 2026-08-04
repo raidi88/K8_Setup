@@ -91,6 +91,15 @@ resource "helm_release" "ingress_nginx" {
     value = "LoadBalancer"
   }
 
+  # Pinned -- every *.homelab.local AdGuard DNS rewrite hardcodes this IP.
+  # MetalLB auto-assigns otherwise, which drifted this to a different address
+  # after an outage and silently broke every ingress hostname (see incident
+  # notes in implementation-plan.md).
+  set {
+    name  = "controller.service.loadBalancerIP"
+    value = "192.168.0.240"
+  }
+
   set {
     name  = "controller.extraArgs.default-ssl-certificate"
     value = "ingress-nginx/homelab-wildcard-tls"

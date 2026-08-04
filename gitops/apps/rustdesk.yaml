@@ -49,6 +49,9 @@ spec:
           app:
             controller: rustdesk
             type: LoadBalancer
+            # Pinned to the documented address in CREDENTIALS.md -- clients are
+            # configured with this IP as the relay/ID server, so it can't drift.
+            loadBalancerIP: 192.168.0.242
             ports:
               p21115:
                 port: 21115

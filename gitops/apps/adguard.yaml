@@ -44,6 +44,11 @@ spec:
           dns:
             controller: adguard
             type: LoadBalancer
+            # Pinned so DNS survives MetalLB reassigning IPs after an outage --
+            # Tailscale's tailnet nameserver config and every device pointing at
+            # this DNS server hardcode 192.168.0.241. Without pinning, MetalLB's
+            # auto-assignment can hand .241 to a different service on restart.
+            loadBalancerIP: 192.168.0.241
             ports:
               dns-tcp:
                 port: 53

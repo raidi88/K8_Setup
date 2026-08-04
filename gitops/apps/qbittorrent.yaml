@@ -51,6 +51,10 @@ spec:
           torrent:
             controller: qbittorrent
             type: LoadBalancer
+            # Pinned to the documented address -- was drifting onto whatever IP
+            # MetalLB handed out next (including briefly grabbing .241, which
+            # AdGuard's DNS service needs reserved).
+            loadBalancerIP: 192.168.0.245
             ports:
               torrent-tcp:
                 port: 6881
