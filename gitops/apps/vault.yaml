@@ -1,0 +1,71 @@
+# Official chart: https://github.com/hashicorp/vault-helm (helm.releases.hashicorp.com).
+#
+# Standalone mode (single replica, file storage backend on a local-path PVC) — no Consul,
+# no HA/Raft. This is a homelab secrets store, not a production HA deployment, so the
+# simplest supported backend wins. Injector (the mutating webhook that sidecars vault-agent
+# into other pods) left disabled — nothing in this cluster consumes Vault secrets yet;
+# turn it on if/when an app is wired to pull from Vault instead of SealedSecrets.
+#
+# Unlike every other app here, Vault does NOT get auto-unsealed or initialized by
+# ArgoCD/Helm — that's a manual one-time step (`vault operator init` + `vault operator
+# unseal`, see CREDENTIALS.md) run after the pod comes up sealed, same "one manual seam"
+# pattern as ArgoCD itself in docs/implementation-plan.md Phase 3. It also means Vault
+# comes back up sealed after every pod restart and needs unsealing again — acceptable
+# for a homelab, revisit with auto-unseal (transit/cloud KMS) only if that becomes painful.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vault
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://helm.releases.hashicorp.com
+    chart: vault
+    targetRevision: 0.34.0
+    helm:
+      valuesObject:
+        injector:
+          enabled: false
+
+        server:
+          ha:
+            enabled: false
+          standalone:
+            enabled: true
+            config: |
+              listener "tcp" {
+                address = "[::]:8200"
+                tls_disable = 1
+              }
+              storage "file" {
+                path = "/vault/data"
+              }
+          dataStorage:
+            enabled: true
+            size: 2Gi
+            storageClass: local-path
+          auditStorage:
+            enabled: false
+          ingress:
+            enabled: true
+            ingressClassName: nginx
+            annotations:
+              nginx.ingress.kubernetes.io/limit-rps: "30"
+              nginx.ingress.kubernetes.io/limit-burst-multiplier: "10"
+            hosts:
+              - host: vault.homelab.local
+                paths:
+                  - /
+
+        ui:
+          enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vault
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

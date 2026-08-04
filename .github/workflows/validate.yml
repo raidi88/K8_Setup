@@ -1,0 +1,57 @@
+# Simple CI: catches YAML/manifest/Terraform mistakes before they reach ArgoCD's
+# auto-sync (the actual CD -- see gitops/root-app.yaml). Deliberately minimal: no
+# cluster access, no secrets, nothing that deploys anything -- just static validation.
+name: Validate
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  yamllint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: gitops
+          config_data: |
+            extends: default
+            rules:
+              line-length: disable
+              document-start: disable
+              truthy: disable
+
+  kubeconform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate plain Kubernetes manifests
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          # -ignore-missing-schemas: this repo mixes plain k8s resources with CRDs
+          # (ArgoCD Application, SealedSecret) that have no bundled schema to check
+          # against here -- still validates every resource kubeconform does recognize.
+          ./kubeconform -ignore-missing-schemas -summary gitops/apps/*.yaml gitops/root-app.yaml
+
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive
+      # core-services.tf's file() calls (and providers.tf's SSH key) need *something* on
+      # disk to read -- the real certs/key are gitignored (self-signed cert from mkcert,
+      # real SSH key generated locally). Dummy content is fine: validate only checks
+      # config is well-formed, it never applies these.
+      - name: Placeholders for file()-referenced secrets (validate doesn't need real ones)
+        run: |
+          mkdir -p .certs && echo "placeholder" > .certs/ingress.pem && echo "placeholder" > .certs/ingress-key.pem
+          mkdir -p ~/.ssh && echo "placeholder" > ~/.ssh/homelab_k3s_ed25519
+      - run: terraform init -backend=false
+      - run: terraform validate

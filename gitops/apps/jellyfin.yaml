@@ -51,6 +51,9 @@ spec:
         ingress:
           app:
             className: nginx
+            annotations:
+              nginx.ingress.kubernetes.io/limit-rps: "30"
+              nginx.ingress.kubernetes.io/limit-burst-multiplier: "10"
             hosts:
               - host: jellyfin.homelab.local
                 paths:
@@ -82,6 +85,18 @@ spec:
             globalMounts:
               - path: /media/drive2
                 readOnly: true
+          # Read-write placeholder for future additions (small, local-path, same "not
+          # sized for real use yet" caveat as the qbittorrent/whisparr downloads PVC —
+          # see implementation-plan.md Phase 6+). Backs a second, all-users-visible
+          # library, kept separate from the read-only Videos library so new content
+          # doesn't inherit that library's restricted access.
+          newmedia:
+            enabled: true
+            accessMode: ReadWriteOnce
+            size: 10Gi
+            storageClass: local-path
+            globalMounts:
+              - path: /media/new
   destination:
     server: https://kubernetes.default.svc
     namespace: jellyfin

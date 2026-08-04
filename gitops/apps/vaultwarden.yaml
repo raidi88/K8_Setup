@@ -1,0 +1,62 @@
+# Vaultwarden — Bitwarden-compatible password manager, added because HashiCorp Vault
+# (vault.yaml) has no mobile app/autofill and isn't meant for personal password
+# management. This is the actual "sync passwords to my phone" tool; Vault stays as-is
+# for infra/API secrets, separate concern.
+#
+# Community chart (guerzon/vaultwarden on GitHub Pages) -- no official chart exists.
+# Its own ingress template already bakes in rate-limiting (limit-rps 15,
+# limit-connections 25), so no extra annotations needed here like the other apps.
+#
+# Admin token comes from a plain Secret (`vaultwarden-admin`), created directly via
+# kubectl, not a SealedSecret -- same reasoning as minio.yaml's root credentials.
+#
+# `ingress.tls: false` deliberately -- the chart's own tls block requires a real
+# `tlsSecret` name, but every app in this cluster gets HTTPS for free from
+# ingress-nginx's cluster-wide default-ssl-certificate (see core-services.tf) without
+# needing a per-Ingress TLS secret, so there's nothing to point it at.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vaultwarden
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://guerzon.github.io/vaultwarden
+    chart: vaultwarden
+    targetRevision: 0.44.0
+    helm:
+      valuesObject:
+        domain: https://vaultwarden.homelab.local
+
+        adminToken:
+          existingSecret: vaultwarden-admin
+          existingSecretKey: ADMIN_TOKEN
+
+        # Left on so the user can create their own account/master password directly --
+        # that's not something to generate on someone's behalf. Only reachable over
+        # LAN/tailnet anyway (no port forwarding, per design.md). Turn off via the
+        # admin panel (/admin, ADMIN_TOKEN above) once the account exists.
+        signupsAllowed: "true"
+
+        ingress:
+          enabled: true
+          class: nginx
+          tls: false
+          hostname: vaultwarden.homelab.local
+
+        storage:
+          data:
+            name: vaultwarden-data
+            size: 5Gi
+            class: local-path
+            accessMode: ReadWriteOnce
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vaultwarden
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
