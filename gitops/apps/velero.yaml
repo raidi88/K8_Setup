@@ -75,7 +75,12 @@ spec:
             disabled: false
             schedule: "0 3 * * *"
             template:
-              ttl: "240h0m0s"
+              # Just over the 24h schedule interval, so the previous day's backup
+              # expires shortly after the new one lands -- keeps ~1 backup at a
+              # time instead of accumulating (was 240h/10 days, which is what
+              # filled worker2's disk and caused the outage documented in
+              # implementation-plan.md).
+              ttl: "25h0m0s"
               defaultVolumesToFsBackup: true
               excludedNamespaces:
                 - kube-system
