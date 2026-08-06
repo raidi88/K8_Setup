@@ -23,6 +23,11 @@ spec:
       valuesObject:
         controllers:
           whisparr:
+            pod:
+              annotations:
+                # Same reasoning as jellyfin.yaml -- read-only NFS media
+                # mounts don't need backing up and were filling the node disk.
+                backup.velero.io/backup-volumes-excludes: media1,media2
             containers:
               app:
                 image:

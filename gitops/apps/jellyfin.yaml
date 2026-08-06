@@ -27,6 +27,14 @@ spec:
       valuesObject:
         controllers:
           jellyfin:
+            pod:
+              annotations:
+                # Read-only NFS media mounts (~11TB) don't need backing up --
+                # they're sourced from the physical drives, not app-generated
+                # data -- and Velero's default fs-backup tried to copy them
+                # into MinIO anyway, filling the node disk and taking down
+                # AdGuard/MetalLB. See implementation-plan.md incident notes.
+                backup.velero.io/backup-volumes-excludes: media1,media2
             containers:
               app:
                 image:

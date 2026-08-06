@@ -20,6 +20,11 @@ spec:
       valuesObject:
         controllers:
           homepage:
+            pod:
+              annotations:
+                # Same media mounts as jellyfin/whisparr, same reasoning --
+                # exclude from fs-backup, they don't need backing up.
+                backup.velero.io/backup-volumes-excludes: media1,media2
             containers:
               app:
                 image:
